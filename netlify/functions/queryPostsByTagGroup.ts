@@ -3,6 +3,8 @@ import { BlogPost, Tag } from "@prisma/client";
 import { getNetlifyFunctionHandler } from "../utils/getNetlifyFunctionHandler";
 import { QueryCacheKeys, GLOBAL_CACHE_EXPIRY } from "../utils/constants";
 
+const TAG_FEATURED = 'featured';
+
 type BlogPostWithTags = BlogPost & {
   tags: {
     tag: Tag;
@@ -35,11 +37,13 @@ export const handler: Handler = async (event) => {
 
       const [tagGroups, featuredPosts] = await Promise.all([
         Promise.all(tagNameCollection.map(async (tagName) => {
+          const isFeaturedTag = tagName === TAG_FEATURED;
+          const featuredMultiplier = isFeaturedTag ? 2 : 1;
           const posts = await prisma.blogPost.findMany({
             where: { tags: { some: { tag: { name: tagName }}}},
             include: { tags: { include: { tag: true }}},
             // orderBy: { createdAt: 'desc' },
-            take: totalMaxItemsPerTag
+            take: totalMaxItemsPerTag * featuredMultiplier
           });
 
           return {
@@ -53,6 +57,8 @@ export const handler: Handler = async (event) => {
           take: totalMaxItemsPerTag
         })
       ]);
+
+      console.log('featuredPosts', featuredPosts);
 
       return { featuredPosts, tagGroups };
     }
